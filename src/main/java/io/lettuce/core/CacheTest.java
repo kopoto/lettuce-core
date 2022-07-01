@@ -166,14 +166,15 @@ public class CacheTest {
                     List<KeyValue<String, String>> keyValues = doPipelineMget(keys);
                     int ds = 12;
                 } else if (typeLevel == 3) {
-                    RedisFuture<List<KeyValue<String, String>>> future = doAsyncPipelineMget(keys);
-                    List<KeyValue<String, String>> keyValues = future.get();
-                    int ds = 12;
-                } else if (typeLevel == 4) {
-                    CompletableFuture<List<KeyValue<String, String>>> future = doAsyncPipelineMget1(keys);
+                    CompletableFuture<List<KeyValue<String, String>>> future = doAsyncPipelineMget(keys);
                     List<KeyValue<String, String>> keyValues = future.get();
                     int ds = 12;
                 }
+//                else if (typeLevel == 4) {
+//                    RedisFuture<List<KeyValue<String, String>>> future = doAsyncPipelineMget(keys);
+//                    List<KeyValue<String, String>> keyValues = future.get();
+//                    int ds = 12;
+//                }
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -226,59 +227,28 @@ public class CacheTest {
         System.out.println(buffer);
     }
 
-    public static Map<Integer, List<String>> partition(StringCodec codec, Iterable<String> keys) {
-        Map<Integer, List<String>> partitioned = new HashMap<>();
-        for (String key : keys) {
-            int slot = SlotHash.getSlot(codec.encodeKey(key));
-            if (!partitioned.containsKey(slot)) {
-                partitioned.put(slot, new ArrayList<>());
-            }
-            Collection<String> list = partitioned.get(slot);
-            list.add(key);
-        }
-        return partitioned;
-    }
 
-    public RedisFuture<List<KeyValue<String, String>>> doAsyncPipelineMget(Set<String> keys) {
-        Map<Integer, List<String>> partitioned = SlotHash.partition(stringCodec, keys);
-        Map<String, Integer> slots = SlotHash.getSlots(partitioned);
-        Map<Integer, RedisFuture<List<KeyValue<String, String>>>> executions = new HashMap<>();
-
-        List<AsyncCommand<String, String, List<KeyValue<String, String>>>> commands = asyncPipelineMget(keys, executions);
-//        List<AsyncCommand<String, String, List<KeyValue<String, String>>>> commands = new LinkedList<>();
-//        Map<StatefulRedisConnection, List<AsyncCommand<String, String, List<KeyValue<String, String>>>>> map = new HashMap<>();
-//        for (Map.Entry<Integer, List<String>> entry : partitioned.entrySet()) {
-//            Integer slot = entry.getKey();
-//            RedisURI uri = partitions.getPartitionBySlot(slot).getUri();
-//            StatefulRedisConnection statefulRedisConnection = fetchStatefulRedisConnection(uri);
-//
-//            CommandArgs<String, String> args = new CommandArgs<>(stringCodec).addKeys(entry.getValue());
-//            KeyValueListOutput<String, String> keyValueListOutput = new KeyValueListOutput<>(stringCodec, entry.getValue());
-//            Command<String, String, List<KeyValue<String, String>>> command = new Command<>(MGET, keyValueListOutput, args);
-//            AsyncCommand<String, String, List<KeyValue<String, String>>> asyncCommand = new AsyncCommand<>(command);
-//            executions.put(slot, asyncCommand);
-//            List<AsyncCommand<String, String, List<KeyValue<String, String>>>> list = map.getOrDefault(statefulRedisConnection, new LinkedList<>());
-//            list.add(asyncCommand);
-//            map.put(statefulRedisConnection, list);
-//            commands.add(asyncCommand);
-//        }
-//        for (Map.Entry<StatefulRedisConnection, List<AsyncCommand<String, String, List<KeyValue<String, String>>>>> entry : map.entrySet()) {
-//            StatefulRedisConnection statefulRedisConnection = entry.getKey();
-//            statefulRedisConnection.dispatch(entry.getValue());
-//        }
-
-        PipelinedRedisFuture<List<KeyValue<String, String>>> pipelinedRedisFuture = new PipelinedRedisFuture<>(executions, objectPipelinedRedisFuture -> {
-            List<KeyValue<String, String>> result = new ArrayList<>();
-            for (String opKey : keys) {
-                int slot = slots.get(opKey);
-                int position = partitioned.get(slot).indexOf(opKey);
-                RedisFuture<List<KeyValue<String, String>>> listRedisFuture = executions.get(slot);
-                result.add(MultiNodeExecution.execute(() -> listRedisFuture.get().get(position)));
-            }
-            return result;
-        });
-        return pipelinedRedisFuture;
-    }
+//    public RedisFuture<List<KeyValue<String, String>>> doAsyncPipelineMget1(Set<String> keys) {
+//        Map<Integer, List<String>> partitioned = SlotHash.partition(stringCodec, keys);
+//        Map<String, Integer> slots = SlotHash.getSlots(partitioned);
+//        Map<Integer, RedisFuture<List<KeyValue<String, String>>>> executions = new HashMap<>();
+//        asyncPipelineMget(keys, executions);
+//        PipelinedRedisFuture<List<KeyValue<String, String>>> pipelinedRedisFuture = new PipelinedRedisFuture<>(executions, objectPipelinedRedisFuture -> {
+//            List<KeyValue<String, String>> ans = new ArrayList<>();
+//            for (RedisFuture<List<KeyValue<String, String>>> future : executions.values()) {
+//                ans.addAll(MultiNodeExecution.execute(() -> future.get()));
+//            }
+////            List<KeyValue<String, String>> result = new ArrayList<>();
+////            for (String opKey : keys) {
+////                int slot = slots.get(opKey);
+////                int position = partitioned.get(slot).indexOf(opKey);
+////                RedisFuture<List<KeyValue<String, String>>> listRedisFuture = executions.get(slot);
+////                result.add(MultiNodeExecution.execute(() -> listRedisFuture.get().get(position)));
+////            }
+//            return ans;
+//        });
+//        return pipelinedRedisFuture;
+//    }
 
 
     public List<AsyncCommand<String, String, List<KeyValue<String, String>>>> asyncPipelineMget(Set<String> keys, Map<Integer, RedisFuture<List<KeyValue<String, String>>>> executions) {
@@ -296,7 +266,7 @@ public class CacheTest {
             KeyValueListOutput<String, String> keyValueListOutput = new KeyValueListOutput<>(stringCodec, entry.getValue());
             Command<String, String, List<KeyValue<String, String>>> command = new Command<>(MGET, keyValueListOutput, args);
             AsyncCommand<String, String, List<KeyValue<String, String>>> asyncCommand = new AsyncCommand<>(command);
-            ClusterCommand clusterCommand = new ClusterCommand(asyncCommand,channelWriter,3);
+            ClusterCommand clusterCommand = new ClusterCommand(asyncCommand, channelWriter, 3);
             List<ClusterCommand<String, String, List<KeyValue<String, String>>>> list = map.getOrDefault(statefulRedisConnection, new LinkedList<>());
             list.add(clusterCommand);
             executions.put(slot, asyncCommand);
@@ -310,7 +280,7 @@ public class CacheTest {
         return commands;
     }
 
-    public CompletableFuture<List<KeyValue<String, String>>> doAsyncPipelineMget1(Set<String> keys) {
+    public CompletableFuture<List<KeyValue<String, String>>> doAsyncPipelineMget(Set<String> keys) {
         Map<Integer, RedisFuture<List<KeyValue<String, String>>>> executions = new HashMap<>();
         List<AsyncCommand<String, String, List<KeyValue<String, String>>>> commands = asyncPipelineMget(keys, executions);
         CompletionStage<List<KeyValue<String, String>>> stage = CompletableFuture.completedFuture(new ArrayList<>());
@@ -322,46 +292,6 @@ public class CacheTest {
         }
         CompletableFuture<List<KeyValue<String, String>>> future = stage.toCompletableFuture();
         return future;
-    }
-
-
-    public List<KeyValue<String, String>> doPipelineMget1(Set<String> keys, StatefulConnection<String, String> connection) {
-        Map<Integer, List<String>> partitioned = SlotHash.partition(stringCodec, keys);
-        List<KeyValue<String, String>> ans = new LinkedList<>();
-        Partitions partitions = client.getPartitions();
-
-        List<AsyncCommand<String, String, List<KeyValue<String, String>>>> commands = new LinkedList<>();
-        Map<StatefulRedisConnection, List<AsyncCommand<String, String, List<KeyValue<String, String>>>>> map = new HashMap<>();
-        for (Map.Entry<Integer, List<String>> entry : partitioned.entrySet()) {
-            Integer slot = entry.getKey();
-            RedisURI uri = partitions.getPartitionBySlot(slot).getUri();
-            StatefulRedisConnection statefulRedisConnection = fetchStatefulRedisConnection(uri);
-
-            CommandArgs<String, String> args = new CommandArgs<>(stringCodec).addKeys(entry.getValue());
-            KeyValueListOutput<String, String> keyValueListOutput = new KeyValueListOutput<>(stringCodec, entry.getValue());
-            Command<String, String, List<KeyValue<String, String>>> command = new Command<>(MGET, keyValueListOutput, args);
-            AsyncCommand<String, String, List<KeyValue<String, String>>> asyncCommand = new AsyncCommand<>(command);
-            List<AsyncCommand<String, String, List<KeyValue<String, String>>>> list = map.getOrDefault(statefulRedisConnection, new LinkedList<>());
-            list.add(asyncCommand);
-            map.put(statefulRedisConnection, list);
-            commands.add(asyncCommand);
-        }
-        for (Map.Entry<StatefulRedisConnection, List<AsyncCommand<String, String, List<KeyValue<String, String>>>>> entry : map.entrySet()) {
-            StatefulRedisConnectionImpl statefulRedisConnection = (StatefulRedisConnectionImpl) entry.getKey();
-            statefulRedisConnection.dispatch(entry.getValue());
-        }
-        for (AsyncCommand<String, String, List<KeyValue<String, String>>> future : commands) {
-            List<KeyValue<String, String>> keyValues = null;
-            try {
-                keyValues = future.get();
-            } catch (InterruptedException interruptedException) {
-                interruptedException.printStackTrace();
-            } catch (ExecutionException e) {
-                e.printStackTrace();
-            }
-            ans.addAll(keyValues);
-        }
-        return ans;
     }
 
 
