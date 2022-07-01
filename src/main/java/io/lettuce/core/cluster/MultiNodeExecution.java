@@ -30,9 +30,9 @@ import io.lettuce.core.internal.Exceptions;
  *
  * @author Mark Paluch
  */
-class MultiNodeExecution {
+public class MultiNodeExecution {
 
-    static <T> T execute(Callable<T> function) {
+    public static <T> T execute(Callable<T> function) {
         try {
             return function.call();
         } catch (Exception e) {
@@ -65,7 +65,7 @@ class MultiNodeExecution {
      * Returns the result of the first {@link RedisFuture} and guarantee that all futures are finished.
      *
      * @param executions mapping of a key to the future
-     * @param <T> result type
+     * @param <T>        result type
      * @return future returning the first result.
      */
     protected static <T> RedisFuture<T> firstOfAsync(Map<?, ? extends CompletionStage<T>> executions) {
@@ -86,7 +86,7 @@ class MultiNodeExecution {
      * Returns the result of the last {@link RedisFuture} and guarantee that all futures are finished.
      *
      * @param executions mapping of a key to the future
-     * @param <T> result type
+     * @param <T>        result type
      * @return future returning the first result.
      */
     static <T> RedisFuture<T> lastOfAsync(Map<?, ? extends CompletionStage<T>> executions) {

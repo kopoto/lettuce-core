@@ -117,13 +117,12 @@ public class SlotHash {
      * Partition keys by slot-hash. The resulting map honors order of the keys.
      *
      * @param codec codec to encode the key
-     * @param keys iterable of keys
-     * @param <K> Key type.
-     * @param <V> Value type.
+     * @param keys  iterable of keys
+     * @param <K>   Key type.
+     * @param <V>   Value type.
      * @result map between slot-hash and an ordered list of keys.
-     *
      */
-    static <K, V> Map<Integer, List<K>> partition(RedisCodec<K, V> codec, Iterable<K> keys) {
+    public static <K, V> Map<Integer, List<K>> partition(RedisCodec<K, V> codec, Iterable<K> keys) {
 
         Map<Integer, List<K>> partitioned = new HashMap<>();
         for (K key : keys) {
@@ -143,7 +142,7 @@ public class SlotHash {
      * @param partitioned map partitioned by slothash and keys
      * @param <K>
      */
-    static <K> Map<K, Integer> getSlots(Map<Integer, ? extends Iterable<K>> partitioned) {
+    public static <K> Map<K, Integer> getSlots(Map<Integer, ? extends Iterable<K>> partitioned) {
 
         Map<K, Integer> result = new HashMap<>();
         for (Map.Entry<Integer, ? extends Iterable<K>> entry : partitioned.entrySet()) {

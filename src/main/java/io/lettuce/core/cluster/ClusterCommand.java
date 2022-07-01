@@ -23,7 +23,7 @@ import io.netty.buffer.ByteBuf;
  * @author Mark Paluch
  * @since 3.0
  */
-class ClusterCommand<K, V, T> extends CommandWrapper<K, V, T> implements RedisCommand<K, V, T> {
+public class ClusterCommand<K, V, T> extends CommandWrapper<K, V, T> implements RedisCommand<K, V, T> {
 
     private int redirections;
 
@@ -34,12 +34,11 @@ class ClusterCommand<K, V, T> extends CommandWrapper<K, V, T> implements RedisCo
     private boolean completed;
 
     /**
-     *
      * @param command
      * @param retry
      * @param maxRedirections
      */
-    ClusterCommand(RedisCommand<K, V, T> command, RedisChannelWriter retry, int maxRedirections) {
+    public ClusterCommand(RedisCommand<K, V, T> command, RedisChannelWriter retry, int maxRedirections) {
         super(command);
         this.retry = retry;
         this.maxRedirections = maxRedirections;
