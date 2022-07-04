@@ -252,11 +252,13 @@ public class CacheTest {
 
 
     public List<AsyncCommand<String, String, List<KeyValue<String, String>>>> asyncPipelineMget(Set<String> keys, Map<Integer, RedisFuture<List<KeyValue<String, String>>>> executions) {
+        // slot 分组
         Map<Integer, List<String>> partitioned = SlotHash.partition(stringCodec, keys);
         Partitions partitions = client.getPartitions();
         List<AsyncCommand<String, String, List<KeyValue<String, String>>>> commands = new LinkedList<>();
         Map<StatefulRedisConnection, List<ClusterCommand<String, String, List<KeyValue<String, String>>>>> map = new HashMap<>();
         RedisChannelWriter channelWriter = client.connect().getChannelWriter();
+        // node 分组
         for (Map.Entry<Integer, List<String>> entry : partitioned.entrySet()) {
             Integer slot = entry.getKey();
             RedisURI uri = partitions.getPartitionBySlot(slot).getUri();
@@ -266,6 +268,7 @@ public class CacheTest {
             KeyValueListOutput<String, String> keyValueListOutput = new KeyValueListOutput<>(stringCodec, entry.getValue());
             Command<String, String, List<KeyValue<String, String>>> command = new Command<>(MGET, keyValueListOutput, args);
             AsyncCommand<String, String, List<KeyValue<String, String>>> asyncCommand = new AsyncCommand<>(command);
+            // 构建 ClusterCommand 保证三次重试
             ClusterCommand clusterCommand = new ClusterCommand(asyncCommand, channelWriter, 3);
             List<ClusterCommand<String, String, List<KeyValue<String, String>>>> list = map.getOrDefault(statefulRedisConnection, new LinkedList<>());
             list.add(clusterCommand);
@@ -273,6 +276,7 @@ public class CacheTest {
             map.put(statefulRedisConnection, list);
             commands.add(asyncCommand);
         }
+        // node 发送请求 write and flush
         for (Map.Entry<StatefulRedisConnection, List<ClusterCommand<String, String, List<KeyValue<String, String>>>>> entry : map.entrySet()) {
             StatefulRedisConnection statefulRedisConnection = entry.getKey();
             statefulRedisConnection.dispatch(entry.getValue());
@@ -283,6 +287,7 @@ public class CacheTest {
     public CompletableFuture<List<KeyValue<String, String>>> doAsyncPipelineMget(Set<String> keys) {
         Map<Integer, RedisFuture<List<KeyValue<String, String>>>> executions = new HashMap<>();
         List<AsyncCommand<String, String, List<KeyValue<String, String>>>> commands = asyncPipelineMget(keys, executions);
+        // 多个异步请求构造， 返回一个共同 CompletableFuture
         CompletionStage<List<KeyValue<String, String>>> stage = CompletableFuture.completedFuture(new ArrayList<>());
         for (AsyncCommand<String, String, List<KeyValue<String, String>>> asyncCommand : commands) {
             stage = stage.thenCombine(asyncCommand, (result, resp) -> {

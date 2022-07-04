@@ -377,27 +377,14 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint, PushHandle
         QUEUE_SIZE.addAndGet(this, commands.size());
 
         if (reliability == Reliability.AT_MOST_ONCE) {
-
-            // cancel on exceptions and remove from queue, because there is no housekeeping
-//            for (RedisCommand<?, ?, ?> command : commands) {
-//                channelWrite(command).addListener(AtMostOnceWriteListener.newInstance(this, command));
-//            }
-//
             channelWriteAndFlush(commands)
                     .addListener(AtMostOnceWriteListener.newInstance(this, commands));
         }
 
         if (reliability == Reliability.AT_LEAST_ONCE) {
-
-            // commands are ok to stay within the queue, reconnect will retrigger them
-//            for (RedisCommand<?, ?, ?> command : commands) {
-//                channelWrite(command).addListener(RetryListener.newInstance(this, command));
-//            }
             channelWriteAndFlush(commands)
                     .addListener(RetryListener.newInstance(this, commands));
         }
-
-//        channelFlush();
     }
 
 
